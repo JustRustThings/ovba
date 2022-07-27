@@ -71,6 +71,7 @@ use std::{
     cell::RefCell,
     io::{Read, Seek},
     path::Path,
+    path::PathBuf,
 };
 
 /// Represents a VBA project.
@@ -78,6 +79,7 @@ use std::{
 /// This type serves as the entry point into this crate's functionality and exposes the
 /// public API surface.
 pub struct Project<R> {
+    root_path: PathBuf,
     /// Specifies version-independent information for the VBA project.
     pub information: Information,
     /// Specifies the external references of the VBA project.
@@ -320,6 +322,7 @@ impl<R: Read + Seek> Project<R> {
             format!("/VBA/{}", &module.stream_name)
         };
         let offset = module.text_offset;
+        let path = self.root_path.join(&module.stream_name);
         let src_code = self.decompress_stream_from(path, offset)?;
 
         Ok(src_code)
@@ -351,12 +354,7 @@ impl<R: Read + Seek> Project<R> {
 /// with data from the parsed binary input.
 pub fn open_project<R: Read + Seek>(raw: R) -> Result<Project<R>> {
     let container = CompoundFile::open(raw).map_err(Error::Cfb)?;
-    // Read *dir* stream
-    #[cfg(target_family = "windows")]
-    const DIR_STREAM_PATH: &str = "/VBA\\dir";
-    #[cfg(not(target_family = "windows"))]
-    const DIR_STREAM_PATH: &str = "/VBA/dir";
-    open_project_by_path(DIR_STREAM_PATH, container)
+    open_project_by_path("/", container)
 }
 
 /// Opens a VBA project.
@@ -367,7 +365,7 @@ pub fn open_project_by_path<P: AsRef<Path>, R: Read + Seek>(
     mut container: CompoundFile<R>,
 ) -> Result<Project<R>> {
     // Read *dir* stream
-    let path = root.as_ref().join("dir");
+    let path = root.as_ref().join("VBA").join("dir");
 
     let mut buffer = Vec::new();
     container
@@ -386,6 +384,7 @@ pub fn open_project_by_path<P: AsRef<Path>, R: Read + Seek>(
     debug_assert_eq!(remainder.len(), 0, "Stream not fully consumed");
 
     Ok(Project {
+        root_path: root.as_ref().to_path_buf(),
         information: information.information,
         references: information.references,
         modules: information.modules,
