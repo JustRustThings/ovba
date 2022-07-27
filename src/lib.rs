@@ -71,7 +71,6 @@ use std::{
     cell::RefCell,
     io::{Read, Seek},
     path::Path,
-    rc::Rc,
 };
 
 /// Represents a VBA project.
@@ -88,7 +87,7 @@ pub struct Project<R> {
     // TODO: Figure out how to make this generic (attempts have failed with
     //       trait bound violations). This would allow [`open_project`] to
     //       accept a wider range of input types.
-    container: Rc<RefCell<CompoundFile<R>>>,
+    container: RefCell<CompoundFile<R>>,
 }
 
 /// Specifies the platform for which the VBA project is created.
@@ -344,11 +343,6 @@ impl<R: Read + Seek> Project<R> {
 
         Ok(buffer)
     }
-
-    /// Returns the underlying `CompoundFile`.
-    pub fn as_container(&self) -> Rc<RefCell<CompoundFile<R>>> {
-        self.container.clone()
-    }
 }
 
 /// Opens a VBA project.
@@ -357,7 +351,6 @@ impl<R: Read + Seek> Project<R> {
 /// with data from the parsed binary input.
 pub fn open_project<R: Read + Seek>(raw: R) -> Result<Project<R>> {
     let container = CompoundFile::open(raw).map_err(Error::Cfb)?;
-    let container = Rc::new(RefCell::new(container));
     // Read *dir* stream
     #[cfg(target_family = "windows")]
     const DIR_STREAM_PATH: &str = "/VBA\\dir";
@@ -371,14 +364,13 @@ pub fn open_project<R: Read + Seek>(raw: R) -> Result<Project<R>> {
 /// This function get path to VBA project in container and returns a [`Project`] struct on success
 pub fn open_project_by_path<P: AsRef<Path>, R: Read + Seek>(
     root: P,
-    container: Rc<RefCell<CompoundFile<R>>>,
+    mut container: CompoundFile<R>,
 ) -> Result<Project<R>> {
     // Read *dir* stream
     let path = root.as_ref().join("dir");
 
     let mut buffer = Vec::new();
     container
-        .borrow_mut()
         .open_stream(path)
         .map_err(Error::Cfb)?
         .read_to_end(&mut buffer)
@@ -397,7 +389,7 @@ pub fn open_project_by_path<P: AsRef<Path>, R: Read + Seek>(
         information: information.information,
         references: information.references,
         modules: information.modules,
-        container,
+        container: RefCell::new(container),
     })
 }
 
