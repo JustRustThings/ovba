@@ -322,7 +322,7 @@ impl<R: Read + Seek> Project<R> {
             format!("/VBA/{}", &module.stream_name)
         };
         let offset = module.text_offset;
-        let path = self.root.join(&module.stream_name);
+        let path = self.root.join("VBA").join(&module.stream_name);
         let src_code = self.decompress_stream_from(path, offset)?;
 
         Ok(src_code)
