@@ -7,6 +7,7 @@ use crate::{
 use codepage::to_encoding;
 use encoding_rs::{CoderResult, UTF_16LE};
 use nom::{
+    branch::alt,
     bytes::complete::{tag, take},
     combinator::opt,
     error::{ErrorKind, ParseError},
@@ -205,7 +206,17 @@ fn parse_name(i: &[u8]) -> IResult<&[u8], Vec<u8>, FormatError<&[u8]>> {
 
 fn parse_doc_string(i: &[u8]) -> IResult<&[u8], Vec<u8>, FormatError<&[u8]>> {
     const DOC_STRING_SIGNATURE: &[u8] = &[0x05, 0x00];
-    let (i, doc_string) = preceded(tag(DOC_STRING_SIGNATURE), length_data(le_u32))(i)?;
+    let (i, doc_string) = preceded(
+        alt((
+            tag(DOC_STRING_SIGNATURE),
+            // even though the spec says "MUST be 0x0005", some vba samples put
+            // seemingly random values in the PROJECTDOCSTRING ID field.
+            //
+            // Not sure if this is an evasion technique or just a buggy implementation.
+            take(2u32),
+        )),
+        length_data(le_u32),
+    )(i)?;
     Ok((i, doc_string.to_vec()))
 }
 
