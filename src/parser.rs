@@ -107,10 +107,6 @@ fn chunk_parser(i: &[u8]) -> IResult<&[u8], Vec<u8>, FormatError<&[u8]>> {
     // CompressedChunkHeader (12 bits: size minus 3; 3 bits: 0b110; 1 bit: flag)
     // Delegate to specific parser (compressed/uncompressed) depending on the `flag`
     let (i, header_raw) = le_u16(i)?;
-    // Check header magic (0b110) in bit positions 12..=14
-    if (header_raw >> 12) & 0b111 != 0b011 {
-        return Err(Error(FormatError::UnexpectedValue));
-    }
     // Extract compressed/uncompressed flag
     let flag = ((header_raw >> 15) & 0b1) != 0;
     // Extract length
