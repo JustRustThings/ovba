@@ -112,7 +112,7 @@ fn chunk_parser(i: &[u8]) -> IResult<&[u8], Vec<u8>, FormatError<&[u8]>> {
     // Extract length
     let length = (header_raw & 0xfff) as usize + 1;
 
-    let (chunk, remainder) = i.split_at(length);
+    let (remainder, chunk) = take(length)(i)?;
     if flag {
         Ok((remainder, compressed_chunk_parser(chunk)?.1))
     } else {
