@@ -5,7 +5,7 @@ use crate::{
     ReferenceProject, ReferenceRegistered, SysKind,
 };
 use codepage::to_encoding;
-use encoding_rs::{CoderResult, UTF_16LE};
+use encoding_rs::{CoderResult, UTF_16LE, UTF_8};
 use nom::{
     branch::alt,
     bytes::complete::{tag, take},
@@ -645,7 +645,6 @@ pub(crate) fn parse_project_information(
 /// # Panics
 ///
 /// This function panics, if:
-/// * the passed in code page cannot be mapped to an encoding.
 /// * the maximum length of the output would overflow a `usize`.
 /// * part of the input could not be decoded into the allocated output `String`.
 ///
@@ -653,7 +652,8 @@ pub(crate) fn parse_project_information(
 /// to a later time, when the set of expected errors and the overall error handling strategy
 /// are better understood.
 pub(crate) fn cp_to_string(data: &[u8], code_page: u16) -> String {
-    let encoding = to_encoding(code_page).expect("Failed to map code page to an encoding.");
+    // If code_page is not known, assume it's utf-8
+    let encoding = to_encoding(code_page).unwrap_or(UTF_8);
     let mut decoder = encoding.new_decoder_without_bom_handling();
     // The following returns `None` on overflow. That case is only expected with malformed document
     // input, so let's just panic in this case.
