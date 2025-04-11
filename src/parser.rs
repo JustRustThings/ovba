@@ -88,7 +88,17 @@ fn compressed_chunk_parser(i: &[u8]) -> IResult<&[u8], Vec<u8>, FormatError<&[u8
                 let length = ((copy_token_raw & length_mask) + 3) as usize;
                 let offset = (((copy_token_raw & offset_mask) >> (16 - bit_count)) + 1) as usize;
                 // Copy `length` bytes starting at index `offset`
-                for index in result.len() - offset..result.len() - offset + length {
+                let src_range = result
+                    .len()
+                    // check that offset is not negative
+                    .checked_sub(offset)
+                    // check that offset is not past `result`
+                    .filter(|offset| result.get(*offset).is_some())
+                    .map(|offset_start| offset_start..offset_start + length)
+                    // check that copying the range won't make `result` bigger than the chunk size
+                    .filter(|range| result.len() + range.clone().count() <= 4096)
+                    .ok_or(nom::Err::Error(FormatError::UnexpectedValue))?;
+                for index in src_range {
                     result.push(result[index]);
                 }
             } else {
