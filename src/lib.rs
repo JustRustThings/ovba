@@ -246,7 +246,10 @@ impl<R: Read + Seek> Project<R> {
         P: AsRef<Path>,
     {
         let data = self.read_stream(stream_path)?;
-        let data = parser::decompress(&data[offset..])
+        let slice = data
+            .get(offset..)
+            .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::UnexpectedEof))?;
+        let data = parser::decompress(slice)
             .map_err(|_| Error::Decompressor)?
             .1;
         Ok(data)
